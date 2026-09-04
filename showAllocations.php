@@ -1,37 +1,9 @@
 <?php
 
 require_once "DBconnect.php";
-
-/* =========================================================
-   EXISTING COMPLEX ALLOCATION QUERY - KEPT
-   ========================================================= */
-$sql = "SELECT 
-            ro.recipient_id,
-            ro.org_name,
-            ro.location,
-            ro.priority_level,
-            ro.capacity,
-            COUNT(a.allocation_id) AS total_allocations,
-            SUM(a.quantity) AS total_quantity,
-            GROUP_CONCAT(
-                a.allocation_id 
-                ORDER BY a.allocation_id 
-                SEPARATOR ','
-            ) AS allocation_ids
-
-        FROM Recipient_Organization ro
-
-        JOIN Resource_Allocation a
-        ON ro.recipient_id = a.recipient_id
-
-        GROUP BY
-            ro.recipient_id,
-            ro.org_name,
-            ro.location,
-            ro.priority_level,
-            ro.capacity
-
-        ORDER BY total_quantity DESC";
+$sql = "SELECT ro.recipient_id,ro.org_name, ro.location, ro.priority_level, ro.capacity, COUNT(a.allocation_id) AS total_allocations, SUM(a.quantity) AS total_quantity
+ FROM Recipient_Organization ro JOIN Resource_Allocation a ON ro.recipient_id = a.recipient_id  GROUP BY ro.recipient_id, ro.org_name,ro.location,
+ro.priority_level,ro.capacity ORDER BY total_quantity DESC";
 
 $result = $conn->query($sql);
 
@@ -42,15 +14,27 @@ if ($result) {
     }
 }
 
-/* =========================================================
-   NEW RESOURCE DASHBOARD QUERIES
-   ========================================================= */
+$allocationIdsByRecipient = array();
+$idSql = "SELECT allocation_id FROM Resource_Allocation WHERE recipient_id = ? ORDER BY allocation_id";
+$idStmt = $conn->prepare($idSql);
 
-$allocationKpiSql = "SELECT
-                        COUNT(*) AS total_allocations,
-                        COALESCE(SUM(quantity), 0) AS total_allocated_quantity,
-                        COUNT(DISTINCT recipient_id) AS recipients_served
-                     FROM Resource_Allocation";
+foreach ($allocationRows as $allocationRow) {
+    $recipientId = $allocationRow["recipient_id"];
+    $idStmt->bind_param("i", $recipientId);
+    $idStmt->execute();
+    $idResult = $idStmt->get_result();
+
+    $ids = array();
+    while ($idRow = $idResult->fetch_assoc()) {
+        $ids[] = $idRow["allocation_id"];
+    }
+
+    $allocationIdsByRecipient[$recipientId] = $ids;
+}
+$idStmt->close();
+
+$allocationKpiSql = "SELECT COUNT(*) AS total_allocations, SUM(quantity) AS total_allocated_quantity, COUNT(DISTINCT recipient_id) AS recipients_served
+FROM Resource_Allocation";
 $allocationKpiResult = $conn->query($allocationKpiSql);
 $allocationKpi = array(
     "total_allocations" => 0,
@@ -61,27 +45,17 @@ if ($allocationKpiResult && $allocationKpiResult->num_rows > 0) {
     $allocationKpi = $allocationKpiResult->fetch_assoc();
 }
 
-$highPrioritySql = "SELECT COUNT(DISTINCT r.recipient_id) AS high_priority_recipients
-                    FROM Recipient_Organization r
-                    JOIN Resource_Allocation a
-                        ON r.recipient_id = a.recipient_id
-                    WHERE r.priority_level = 'High'";
+$highPrioritySql = "SELECT COUNT(DISTINCT r.recipient_id) AS high_priority_recipients FROM Recipient_Organization r JOIN Resource_Allocation a
+ON r.recipient_id = a.recipient_id WHERE r.priority_level = 'High'";
 $highPriorityResult = $conn->query($highPrioritySql);
 $highPriorityRecipients = 0;
 if ($highPriorityResult && $highPriorityResult->num_rows > 0) {
     $highPriorityRecipients = (int)$highPriorityResult->fetch_assoc()["high_priority_recipients"];
 }
 
-/* Priority-based allocation analysis */
-$prioritySql = "SELECT
-                    r.priority_level,
-                    COUNT(a.allocation_id) AS total_allocations,
-                    COALESCE(SUM(a.quantity), 0) AS total_quantity
-                FROM Recipient_Organization r
-                JOIN Resource_Allocation a
-                    ON r.recipient_id = a.recipient_id
-                GROUP BY r.priority_level
-                ORDER BY total_quantity DESC";
+
+$prioritySql = "SELECT r.priority_level, COUNT(a.allocation_id) AS total_allocations, SUM(a.quantity) AS total_quantity FROM Recipient_Organization r
+JOIN Resource_Allocation a ON r.recipient_id = a.recipient_id GROUP BY r.priority_level ORDER BY total_quantity DESC";
 $priorityResult = $conn->query($prioritySql);
 $priorityLabels = array();
 $priorityValues = array();
@@ -102,40 +76,6 @@ foreach ($allocationRows as $allocationRow) {
     $recipientChartValues[] = (int)$allocationRow["total_allocations"];
 }
 
-/* Recipient requirement vs allocated quantity.
-   This supports the intelligent matching part of the feature. */
-$matchingSql = "SELECT
-                    r.recipient_id,
-                    r.org_name,
-                    r.location,
-                    r.priority_level,
-                    rr.food_needed,
-                    rr.urgency_level,
-                    rr.quantity AS required_quantity,
-                    COALESCE(SUM(a.quantity), 0) AS allocated_quantity
-                FROM Recipient_Organization r
-                JOIN Recipient_Requirement rr
-                    ON r.recipient_id = rr.recipient_id
-                LEFT JOIN Resource_Allocation a
-                    ON r.recipient_id = a.recipient_id
-                GROUP BY
-                    r.recipient_id,
-                    r.org_name,
-                    r.location,
-                    r.priority_level,
-                    rr.requirement_id,
-                    rr.food_needed,
-                    rr.urgency_level,
-                    rr.quantity
-                ORDER BY r.priority_level, rr.urgency_level";
-$matchingResult = $conn->query($matchingSql);
-$matchingRows = array();
-if ($matchingResult) {
-    while ($row = $matchingResult->fetch_assoc()) {
-        $matchingRows[] = $row;
-    }
-}
-
 ?>
 
 <!DOCTYPE html>
@@ -147,17 +87,9 @@ if ($matchingResult) {
 
     <link rel="stylesheet" href="css/style.css">
 
-    <!-- Chart.js for charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Leaflet for the Bangladesh allocation map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <style>
-        /* =====================================================
-           NEW VISUAL SECTION - ORIGINAL CONTENT REMAINS ABOVE
-           ===================================================== */
         .dashboard-section {
             margin-top: 70px;
             padding-top: 45px;
@@ -230,37 +162,6 @@ if ($matchingResult) {
             height: 260px;
         }
 
-        .map-card {
-            background: white;
-            border: 1px solid #e4ebe5;
-            border-radius: 12px;
-            padding: 22px;
-            box-shadow: 0 5px 18px rgba(0, 0, 0, 0.06);
-            margin: 30px 0;
-        }
-
-        #allocationMap {
-            width: 100%;
-            height: 560px;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid #dbe5dd;
-        }
-
-        .map-status {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 12px 0 18px;
-        }
-
-        .live-indicator {
-            color: #246b45;
-            font-weight: bold;
-        }
-
         .section-note {
             background: #eef8f1;
             border-left: 5px solid #2f8f5b;
@@ -296,10 +197,6 @@ if ($matchingResult) {
             .chart-grid {
                 grid-template-columns: 1fr;
             }
-
-            #allocationMap {
-                height: 430px;
-            }
         }
     </style>
 
@@ -322,11 +219,6 @@ if ($matchingResult) {
 </nav>
 
 <div class="container">
-
-    <!-- =====================================================
-         EXISTING PAGE - KEPT
-         ===================================================== -->
-
     <h1 class="page-title">
         Food Rescue & Resource Matching
     </h1>
@@ -339,8 +231,7 @@ if ($matchingResult) {
     <div class="feature-buttons">
         <a href="addAllocation.php" class="btn">Add Allocation</a>
         <a href="showAllocations.php" class="btn">View Allocations</a>
-        <a href="complexFoodQuery.php" class="btn">Food Resource Matching</a>
-        <a href="complexFeedbackQuery.php" class="btn">Priority & Matching Analysis</a>
+        <a href="priorityMatching.php" class="btn">Priority & Matching Analysis</a>
     </div>
 
     <br><br>
@@ -369,9 +260,11 @@ if ($matchingResult) {
                     <td><?php echo htmlspecialchars($row["total_quantity"]); ?></td>
                     <td>
                         <?php
-                        $allocationIds = explode(",", $row["allocation_ids"]);
+                        $recipientId = $row["recipient_id"];
+                        $allocationIds = isset($allocationIdsByRecipient[$recipientId])
+                            ? $allocationIdsByRecipient[$recipientId]
+                            : array();
                         foreach ($allocationIds as $allocationId) {
-                            $allocationId = trim($allocationId);
                         ?>
                             <a href="editAllocation.php?allocation_id=<?php echo $allocationId; ?>" class="btn">Edit</a>
                             <a href="deleteAllocation.php?allocation_id=<?php echo $allocationId; ?>"
@@ -391,17 +284,13 @@ if ($matchingResult) {
     </table>
 
 
-    <!-- =====================================================
-         NEW SECOND SECTION / PAGE-LIKE DASHBOARD
-         ===================================================== -->
-
     <section class="dashboard-section">
 
         <h2 class="dashboard-heading">Intelligent Resource Allocation Dashboard</h2>
 
         <p class="dashboard-subtitle">
             Visualize how rescued food is allocated across recipient organizations,
-            including priority-based allocation and location-based tracking.
+            including priority-based allocation.
         </p>
 
         <div class="section-note">
@@ -452,78 +341,12 @@ if ($matchingResult) {
 
         </div>
 
-        <div class="map-card">
-
-            <h2 class="dashboard-heading">Bangladesh Food Allocation Tracking Map</h2>
-
-            <p>
-                The map displays database-backed allocation activity by recipient
-                location. When a new allocation is inserted for a recognized area,
-                the marker can appear automatically during the next data refresh.
-            </p>
-
-            <div class="section-note">
-                This is <strong>database-driven location tracking</strong>, not GPS
-                vehicle tracking. Your current database stores locations as text,
-                so the map converts recognized area names into map coordinates.
-                A true Uber/Pathao-style moving vehicle marker would require live
-                latitude and longitude/GPS data in the database.
-            </div>
-
-            <div class="map-status">
-                <span class="live-indicator" id="mapStatus">● Map data loaded from database</span>
-                <span id="lastUpdated">Waiting for first update...</span>
-            </div>
-
-            <div id="allocationMap"></div>
-
-        </div>
-
-        <h2 class="dashboard-heading">Priority & Requirement Matching</h2>
-
-        <p class="dashboard-subtitle">
-            This table compares recipient requirements with the food quantity
-            currently allocated to the recipient.
-        </p>
-
-        <table class="analytics-table">
-            <tr>
-                <th>Recipient</th>
-                <th>Location</th>
-                <th>Priority</th>
-                <th>Food Needed</th>
-                <th>Urgency</th>
-                <th>Required Quantity</th>
-                <th>Allocated Quantity</th>
-            </tr>
-
-            <?php if (count($matchingRows) > 0) { ?>
-                <?php foreach ($matchingRows as $row) { ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($row["org_name"]); ?></td>
-                        <td><?php echo htmlspecialchars($row["location"]); ?></td>
-                        <td><span class="status-badge"><?php echo htmlspecialchars($row["priority_level"]); ?></span></td>
-                        <td><?php echo htmlspecialchars($row["food_needed"]); ?></td>
-                        <td><?php echo htmlspecialchars($row["urgency_level"]); ?></td>
-                        <td><?php echo (int)$row["required_quantity"]; ?></td>
-                        <td><?php echo (int)$row["allocated_quantity"]; ?></td>
-                    </tr>
-                <?php } ?>
-            <?php } else { ?>
-                <tr>
-                    <td colspan="7">No recipient requirement matching data found.</td>
-                </tr>
-            <?php } ?>
-        </table>
-
     </section>
 
 </div>
 
 <script>
-/* =========================================================
-   CHARTS
-   ========================================================= */
+
 const priorityLabels = <?php echo json_encode($priorityLabels); ?>;
 const priorityValues = <?php echo json_encode($priorityValues); ?>;
 
@@ -572,88 +395,6 @@ new Chart(document.getElementById('allocationOverviewChart'), {
         }
     }
 });
-
-/* =========================================================
-   BANGLADESH MAP
-   ========================================================= */
-
-const map = L.map('allocationMap').setView([23.6850, 90.3563], 7);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-let allocationMarkers = {};
-
-function clearMarkers() {
-    Object.keys(allocationMarkers).forEach(function(id) {
-        map.removeLayer(allocationMarkers[id]);
-    });
-    allocationMarkers = {};
-}
-
-function loadAllocationMap() {
-    fetch('allocationMapData.php?time=' + new Date().getTime())
-        .then(function(response) {
-            if (!response.ok) {
-                throw new Error('Unable to load allocation map data.');
-            }
-            return response.json();
-        })
-        .then(function(data) {
-            clearMarkers();
-
-            let mappedCount = 0;
-
-            data.forEach(function(item) {
-                if (item.lat === null || item.lng === null) {
-                    return;
-                }
-
-                mappedCount++;
-
-                let marker = L.marker([item.lat, item.lng]).addTo(map);
-
-                let popup =
-                    '<strong>Allocation #' + item.allocation_id + '</strong><br>' +
-                    '<b>Recipient:</b> ' + escapeHtml(item.org_name) + '<br>' +
-                    '<b>Location:</b> ' + escapeHtml(item.location) + '<br>' +
-                    '<b>Quantity:</b> ' + item.quantity + '<br>' +
-                    '<b>Priority:</b> ' + escapeHtml(item.priority_level) + '<br>' +
-                    '<b>Distribution:</b> ' + (item.distribution_id === null ? 'Not assigned' : item.distribution_id) + '<br>' +
-                    '<b>Status:</b> ' + (item.status === null ? 'Not distributed yet' : escapeHtml(item.status)) + '<br>' +
-                    '<b>Allocation Date:</b> ' + escapeHtml(item.date);
-
-                marker.bindPopup(popup);
-                allocationMarkers[item.allocation_id] = marker;
-            });
-
-            document.getElementById('mapStatus').textContent =
-                '● Live database polling active — ' + mappedCount + ' mapped allocation(s)';
-
-            document.getElementById('lastUpdated').textContent =
-                'Last updated: ' + new Date().toLocaleTimeString();
-        })
-        .catch(function(error) {
-            document.getElementById('mapStatus').textContent = '● Map update failed';
-            console.error(error);
-        });
-}
-
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-loadAllocationMap();
-
-/* Refresh every 10 seconds so a newly inserted allocation can appear. */
-setInterval(loadAllocationMap, 10000);
 </script>
 
 <?php
