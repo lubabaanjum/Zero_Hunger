@@ -1,9 +1,11 @@
 <?php
 
 require_once "DBconnect.php";
-$sql = "SELECT p.partner_id,p.organization_name,p.location,COUNT(m.mission_id) AS total_missions,MIN(m.mission_date) AS first_mission,
-MAX(m.mission_date) AS latest_mission FROM Partner_Organization p RIGHT JOIN Rescue_Mission m ON p.partner_id = m.partner_id
-GROUP BY p.partner_id, p.organization_name, p.location HAVING COUNT(m.mission_id) >= 1 ORDER BY total_missions DESC";
+
+$sql = "SELECT p.partner_id, p.organization_name, p.location, COUNT(m.mission_id) AS total_missions, MIN(m.mission_date) AS first_mission,
+MAX(m.mission_date) AS latest_mission FROM Partner_Organization p LEFT JOIN Rescue_Mission m ON p.partner_id = m.partner_id
+WHERE p.organization_name IS NOT NULL AND p.organization_name <> '' GROUP BY p.partner_id, p.organization_name, p.location
+ORDER BY total_missions DESC";
 
 $result = $conn->query($sql);
 
@@ -35,7 +37,7 @@ $result = $conn->query($sql);
             Home
         </a>
 
-        <a href="showMissions.php">
+        <a href="showMission.php">
             Rescue Missions
         </a>
 
@@ -60,7 +62,9 @@ $result = $conn->query($sql);
 
     <p>
         This report shows the rescue mission activity
-        handled by each partner organization.
+        handled by each partner organization, including
+        partner organizations that have not yet taken
+        part in any rescue mission.
     </p>
 
 
@@ -102,22 +106,7 @@ $result = $conn->query($sql);
 
             <td>
                 <?php
-
-                if (
-                    $row["organization_name"] !== null &&
-                    $row["organization_name"] !== ""
-                ) {
-
-                    echo htmlspecialchars(
-                        $row["organization_name"]
-                    );
-
-                } else {
-
-                    echo "Not Provided";
-
-                }
-
+                echo htmlspecialchars($row["organization_name"]);
                 ?>
             </td>
 
@@ -153,14 +142,26 @@ $result = $conn->query($sql);
 
             <td>
                 <?php
-                echo $row["first_mission"];
+
+                if ($row["first_mission"] !== null) {
+                    echo $row["first_mission"];
+                } else {
+                    echo "No missions yet";
+                }
+
                 ?>
             </td>
 
 
             <td>
                 <?php
-                echo $row["latest_mission"];
+
+                if ($row["latest_mission"] !== null) {
+                    echo $row["latest_mission"];
+                } else {
+                    echo "No missions yet";
+                }
+
                 ?>
             </td>
 
@@ -175,7 +176,7 @@ $result = $conn->query($sql);
             echo "<tr>
 
                     <td colspan='6'>
-                        No mission impact data found.
+                        No partner organization data found.
                     </td>
 
                   </tr>";
@@ -200,4 +201,3 @@ $result = $conn->query($sql);
 $conn->close();
 
 ?>
-```
