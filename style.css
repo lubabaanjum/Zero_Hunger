@@ -859,3 +859,25 @@ footer{
         margin:50px auto;
     }
 }
+ .error-icon{
+    width:80px;
+    height:80px;
+    margin:0 auto 20px;
+    border-radius:50%;
+    background:#c0392b;
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:42px;
+    font-weight:bold;
+}
+
+.error-message{
+    background:#f8d7da;
+    color:#842029;
+    border:1px solid #f5c2c7;
+    padding:12px 15px;
+    border-radius:8px;
+    margin:15px 0 20px;
+}
