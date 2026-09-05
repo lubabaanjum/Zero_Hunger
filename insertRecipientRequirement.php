@@ -14,10 +14,8 @@ $sql="INSERT INTO Recipient_requirement
 
 if($conn->query($sql))
 {
-    echo "Recipient requirement added successfully!";
-    echo "<br><br>";
-    echo "<a href='showRecipientRequirements.php'>
-          View Recipient Requirements</a>";
+      header("Location: showRecipientRequirements.php");
+   exit();
 }
 else
 {
