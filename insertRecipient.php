@@ -14,9 +14,8 @@ $sql="INSERT INTO Recipient_Organization
 
 if($conn->query($sql))
 {
-    echo "Recipient organization added successfully!";
-    echo "<br><br>";
-    echo "<a href='showRecipients.php'>View Recipients</a>";
+    header("Location: showRecipients.php");
+   exit();
 }
 else
 {
