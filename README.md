@@ -22,15 +22,21 @@ Therefore, the database is designed to model efficient food allocation, real-tim
 **#Teammates & Contribution**
 
 Student ID: 24301508	
+
 Name :Lubaba Anjum
+
 Contribution: Volunteers, Feedback, Food Item and Analysis
 
 Student ID: 24301372
+
 Name: Firoza Nudrat Noor
+
 Contribution: Donor, recipient, search food and recipient details, distribution details, and lifecycle tracking
 
 Student ID: 24301294
+
 Name: Arnob Debnath
+
 Contribution: Community Rescue Mission Coordination.Sustainability & Community Impact Analytics,
 Intelligent Food Rescue, Resource Matching & Priority-Based Distribution
-`#ffffff`
+
