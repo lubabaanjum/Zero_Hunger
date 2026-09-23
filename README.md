@@ -1,6 +1,6 @@
 CSE370 Group Project
 
-Project Name:Zero_Hunger
+Project Name: Zero_Hunger
 
 The Zero Hunger Network is a database-based food donation management system whose sole purpose is to reduce food wastage by collecting surplus food from different restaurants, people, and donors and delivering it to different organizations such as charities, shelter homes, and orphanages in an environmentally friendly manner.
 
@@ -26,8 +26,8 @@ Contribution: Volunteers, Feedback, Food Item and Analysis
 Student ID: 24301372
 Name: Firoza Nudrat Noor
 Contribution: Donor, recipient, search food and recipient details, distribution details, and lifecycle tracking
-Student ID: 24301294
 
+Student ID: 24301294
 Name: Arnob Debnath
 Contribution: Community Rescue Mission Coordination.Sustainability & Community Impact Analytics,
 Intelligent Food Rescue, Resource Matching & Priority-Based Distribution
