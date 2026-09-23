@@ -1,7 +1,6 @@
-#ffffff
-** CSE370 Group Project**
+**#CSE370 Group Project**
 
-** Project Name: Zero_Hunger**
+**#Project Name: Zero_Hunger**
 
 The Zero Hunger Network is a database-based food donation management system whose sole purpose is to reduce food wastage by collecting surplus food from different restaurants, people, and donors and delivering it to different organizations such as charities, shelter homes, and orphanages in an environmentally friendly manner.
 
@@ -20,7 +19,7 @@ Therefore, the database is designed to model efficient food allocation, real-tim
 8. Volunteer Assignment & Management Manages volunteer profiles, availability, and rescue assignments
 9. Donor & Recipient Management Maintains detailed profiles of donors and recipient organizations, including donation history, food preferences, capacity, and contact information for smoother coordination.
 
-** Teammates & Contribution**
+**#Teammates & Contribution**
 
 Student ID: 24301508	
 Name :Lubaba Anjum
@@ -34,3 +33,4 @@ Student ID: 24301294
 Name: Arnob Debnath
 Contribution: Community Rescue Mission Coordination.Sustainability & Community Impact Analytics,
 Intelligent Food Rescue, Resource Matching & Priority-Based Distribution
+`#ffffff`
